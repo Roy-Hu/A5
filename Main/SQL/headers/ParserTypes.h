@@ -233,6 +233,69 @@ public:
 		allDisjunctions.push_back (make_shared <BoolLiteral> (true));
 	}
 	
+	bool check_query(MyDB_CatalogPtr myCatalog) {
+		vector <string> tablesList;
+		myCatalog->getStringList("tables", tablesList);
+		
+		for (auto t : tablesToProcess) {
+			bool found = false;
+			for (auto table : tablesList) {
+				if (table.compare(t.first) == 0) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) {
+				printf("Err: referenced table %s do not exist in the catalog\n", t.first.c_str());
+				return false;
+			}			
+		}
+
+		for (auto v : valuesToSelect) {
+			if (!v->checkQuery(myCatalog, tablesToProcess)) {
+				return false;
+			}
+
+			if (!groupingClauses.empty()) {
+				if (v->toString().find("sum") != string :: npos || v->toString().find("avg") != string :: npos) {
+					continue;
+				}
+
+				bool found = false;
+
+				for (auto g : groupingClauses) {
+					if (!g->checkQuery(myCatalog, tablesToProcess)) {
+						return false;
+					}
+
+					if (v->toString().compare(g->toString()) == 0) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					printf("Err: Selected attributes (other than the aggregates) must be functions of the grouping attributes\n");
+				}
+			}
+		}
+
+		for (auto a : allDisjunctions) {
+			if (!a->checkQuery(myCatalog, tablesToProcess)) {
+				return false;
+			}
+		}
+
+		for (auto g : groupingClauses) {
+			if (!g->checkQuery(myCatalog, tablesToProcess)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	~SFWQuery () {}
 
 	void print () {
@@ -295,6 +358,10 @@ public:
 		return myTableToCreate.addToCatalog (storageDir, addToMe);
 	}		
 	
+	bool semantic_check (MyDB_CatalogPtr myCatalog) {
+		return myQuery.check_query(myCatalog);
+	}
+
 	void printSFWQuery () {
 		myQuery.print ();
 	}

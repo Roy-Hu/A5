@@ -5,6 +5,7 @@
 #include "MyDB_AttType.h"
 #include <string>
 #include <vector>
+#include "MyDB_Catalog.h"
 
 // create a smart pointer for database tables
 using namespace std;
@@ -14,11 +15,29 @@ typedef shared_ptr <ExprTree> ExprTreePtr;
 // this class encapsules a parsed SQL expression (such as "this.that > 34.5 AND 4 = 5")
 
 // class ExprTree is a pure virtual class... the various classes that implement it are below
+
+enum TYPE{
+	TYPE_NUMBER,
+	TYPE_BOOL,
+	TYPE_STRING,
+	TYPE_IDENTIFIER,
+	TYPE_UNKNOW
+};
+
+
 class ExprTree {
 
 public:
 	virtual string toString () = 0;
 	virtual ~ExprTree () {}
+
+	virtual bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		return true;
+	};
+
+	virtual TYPE getType (){
+		return TYPE_UNKNOW;
+	}
 };
 
 class BoolLiteral : public ExprTree {
@@ -38,6 +57,11 @@ public:
 			return "bool[false]";
 		}
 	}	
+
+	TYPE getType (){
+		return TYPE_BOOL;
+	}
+
 };
 
 class DoubleLiteral : public ExprTree {
@@ -53,6 +77,10 @@ public:
 	string toString () {
 		return "double[" + to_string (myVal) + "]";
 	}	
+
+	TYPE getType (){
+		return TYPE_NUMBER;
+	}
 
 	~DoubleLiteral () {}
 };
@@ -70,6 +98,11 @@ public:
 
 	string toString () {
 		return "int[" + to_string (myVal) + "]";
+	}
+
+
+	TYPE getType (){
+		return TYPE_NUMBER;
 	}
 
 	~IntLiteral () {}
@@ -90,6 +123,10 @@ public:
 		return "string[" + myVal + "]";
 	}
 
+	TYPE getType (){
+		return TYPE_STRING;
+	}
+
 	~StringLiteral () {}
 };
 
@@ -98,16 +135,56 @@ class Identifier : public ExprTree {
 private:
 	string tableName;
 	string attName;
+	TYPE type;
 public:
 
 	Identifier (char *tableNameIn, char *attNameIn) {
 		tableName = string (tableNameIn);
 		attName = string (attNameIn);
+		type = TYPE_IDENTIFIER;
 	}
 
 	string toString () {
 		return "[" + tableName + "_" + attName + "]";
 	}	
+
+	TYPE getType (){
+		return type;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		string attType;
+		string tableFullName;
+		bool found = false;
+
+		for (auto t : tablesToProcess) {
+			if (tableName.compare(t.second) == 0) {
+				tableFullName = t.first;
+				found = true;
+				break;
+			}	
+		}
+
+		if (!found) {
+			printf("Err: referenced table %s do not exist in the catalog\n", tableName.c_str());
+			return false;
+		}		
+
+		if (!myCatalog->getString(tableFullName + "." + attName + ".type", attType)) {
+			printf("Err: attribute %s do not exist in trhe table %s\n", attName.c_str(), tableName.c_str());
+			return false;
+		}
+
+		if (attType.compare("int") == 0 || attType.compare("double") == 0) {
+			type = TYPE_NUMBER;
+		} else if (attType.compare("string") == 0) {
+			type = TYPE_STRING;
+		} else if (attType.compare("bool") == 0) {
+			type = TYPE_BOOL;
+		}
+
+		return true;
+	}
 
 	~Identifier () {}
 };
@@ -130,6 +207,24 @@ public:
 		return "- (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
 
+	TYPE getType () {
+		return TYPE_NUMBER;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (!(lhs->getType() == TYPE_NUMBER && rhs->getType() == TYPE_NUMBER)) {
+			printf("Err: lhs %s and rhs %s should both be NUMBER to use minus operator -\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
 	~MinusOp () {}
 };
 
@@ -139,17 +234,41 @@ private:
 
 	ExprTreePtr lhs;
 	ExprTreePtr rhs;
+	TYPE type;
 	
 public:
 
 	PlusOp (ExprTreePtr lhsIn, ExprTreePtr rhsIn) {
 		lhs = lhsIn;
 		rhs = rhsIn;
+		type = TYPE_UNKNOW;
 	}
 
 	string toString () {
 		return "+ (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
+
+	TYPE getType () {
+		return type;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() == TYPE_NUMBER && rhs->getType() == TYPE_NUMBER) {
+			type = TYPE_NUMBER;
+		} else if (lhs->getType() == TYPE_STRING && rhs->getType() == TYPE_STRING) {
+			type = TYPE_STRING;
+		} else {
+			printf("Err: lhs %s and rhs %s should both be NUMBER or STRING to use plus operator +\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~PlusOp () {}
 };
@@ -172,6 +291,24 @@ public:
 		return "* (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
 
+	TYPE getType () {
+		return TYPE_NUMBER;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+	
+		if (!(lhs->getType() == TYPE_NUMBER && rhs->getType() == TYPE_NUMBER)) {
+			printf("Err: lhs %s and rhs %s should both be NUMBER to use time operator *\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
 	~TimesOp () {}
 };
 
@@ -192,6 +329,24 @@ public:
 	string toString () {
 		return "/ (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
+
+	TYPE getType () {
+		return TYPE_NUMBER;
+	}
+	
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (!(lhs->getType() == TYPE_NUMBER && rhs->getType() == TYPE_NUMBER)) {
+			printf("Err: lhs %s and rhs %s should both be NUMBER to use divide operator /\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~DivideOp () {}
 };
@@ -214,6 +369,24 @@ public:
 		return "> (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
 
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() != rhs->getType()) {
+			printf("Err: lhs %s and rhs %s should both be same type to use greater than operator >\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
 	~GtOp () {}
 };
 
@@ -234,6 +407,24 @@ public:
 	string toString () {
 		return "< (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
+
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() != rhs->getType()) {
+			printf("Err: lhs %s and rhs %s should both be same type to use less than operator <\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~LtOp () {}
 };
@@ -256,6 +447,24 @@ public:
 		return "!= (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
 
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() != rhs->getType()) {
+			printf("Err: lhs %s and rhs %s should both be same type to use not equal operator !=\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
 	~NeqOp () {}
 };
 
@@ -276,6 +485,24 @@ public:
 	string toString () {
 		return "|| (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
+
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() != rhs->getType()) {
+			printf("Err: lhs %s and rhs %s should both be same type to use or operator ||\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~OrOp () {}
 };
@@ -298,6 +525,24 @@ public:
 		return "== (" + lhs->toString () + ", " + rhs->toString () + ")";
 	}	
 
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!lhs->checkQuery(myCatalog, tablesToProcess) || !rhs->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (lhs->getType() != rhs->getType()) {
+			printf("Err: lhs %s and rhs %s should both be same type to use equal operator ==\n",
+					 lhs->toString().c_str(), rhs->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
 	~EqOp () {}
 };
 
@@ -316,6 +561,24 @@ public:
 	string toString () {
 		return "!(" + child->toString () + ")";
 	}	
+
+	TYPE getType () {
+		return TYPE_BOOL;
+	}
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!child->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (child->getType() != TYPE_BOOL) {
+			printf("Err: Expression %s should be BOOL to use not operator !\n", 
+					child->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~NotOp () {}
 };
@@ -336,6 +599,21 @@ public:
 		return "sum(" + child->toString () + ")";
 	}	
 
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!child->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (child->getType() != TYPE_NUMBER) {
+			printf("Err: Child %s should be NUMBER to use sum operator\n",
+					 child->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
+
+
 	~SumOp () {}
 };
 
@@ -354,6 +632,20 @@ public:
 	string toString () {
 		return "avg(" + child->toString () + ")";
 	}	
+
+	bool checkQuery (MyDB_CatalogPtr myCatalog, vector <pair <string, string>> tablesToProcess) {
+		if (!child->checkQuery(myCatalog, tablesToProcess)) {
+			return false;
+		}
+
+		if (child->getType() != TYPE_NUMBER) {
+			printf("Err: Child %s should be NUMBER to use avg operator\n", 
+					child->toString().c_str());
+			return false;
+		}
+
+		return true;
+	}
 
 	~AvgOp () {}
 };

@@ -160,7 +160,7 @@ int main (int numArgs, char **args) {
 						}	
 
 					} else if (final->isSFWQuery ()) {
-
+						final->semantic_check(myCatalog);
 						// print it out
 						final->printSFWQuery ();
 					}

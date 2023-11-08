@@ -1,0 +1,240 @@
+(1)
+GROUP BY
+        n.n_name;    >     > 
+Selecting the following:
+        [n_n_name]
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        region AS r
+        nation AS n
+        supplier AS s
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+        == ([l_l_suppkey], [s_s_suppkey])
+        == ([c_c_nationkey], [s_s_nationkey])
+        == ([s_s_nationkey], [n_n_nationkey])
+        == ([n_n_regionkey], [r_r_regionkey])
+        == ([r_r_name], string[region])
+        || (> ([o_o_orderdate], string[date1]), == ([o_o_orderdate], string[date1]))
+        !(< ([o_o_orderdate], string[date2]))
+Group using:
+        [n_n_name]
+
+(2)
+Err: Selected attributes (other than the aggregates) must be functions of the grouping attributes
+Selecting the following:
+        [n_n_name]
+        [s_s_suppkey]
+        sum([l_l_extendedprice])
+From the following:
+        lineitem AS l
+        supplier AS s
+        nation AS n
+Where the following are true:
+        == ([l_l_suppkey], [s_s_suppkey])
+        == ([s_s_nationkey], [n_n_nationkey])
+Group using:
+        [n_n_name]
+
+(3)
+Err: lhs * ([l_l_extendedprice], - (int[1], [l_l_discount])) and rhs string[a string] should both be same type to use greater than operator >
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+Where the following are true:
+        > (* ([l_l_extendedprice], - (int[1], [l_l_discount])), string[a string])
+Group using:
+
+(4)
+Err: Child + ([l_l_returnflag], + ([l_l_shipdate], [l_l_commitdate])) should be NUMBER to use sum operator
+Selecting the following:
+        sum(+ ([l_l_returnflag], + ([l_l_shipdate], [l_l_commitdate])))
+From the following:
+        lineitem AS l
+Where the following are true:
+        bool[true]
+Group using:
+
+(5)
+Selecting the following:
+        + ([l_l_returnflag], + ([l_l_shipdate], [l_l_commitdate]))
+From the following:
+        lineitem AS l
+Where the following are true:
+        > ([l_l_shipdate], string[a date])
+Group using:
+
+(6)
+Err: lhs + ([l_l_tax], [l_l_discount]) and rhs string[date2] should both be same type to use greater than operator >
+Selecting the following:
+        [n_n_name]
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        region AS r
+        nation AS n
+        supplier AS s
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+        == ([l_l_suppkey], [s_s_suppkey])
+        == ([c_c_nationkey], [s_s_nationkey])
+        == ([s_s_nationkey], [n_n_nationkey])
+        == ([n_n_regionkey], [r_r_regionkey])
+        == ([r_r_name], string[region])
+        || (> (+ ([l_l_tax], [l_l_discount]), string[date2]), == ([o_o_orderdate], string[date1]))
+        !(< ([o_o_orderdate], string[date2]))
+Group using:
+        [n_n_name]
+
+(7)
+Err: attribute k_orderkey do not exist in trhe table o
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_k_orderkey])
+Group using:
+
+(8)
+Err: referenced table h do not exist in the catalog
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [h_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(9)
+Err: lhs double[15.000000] and rhs string[here is another] should both be NUMBER to use minus operator -
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        > (+ (string[this is a string], string[this is another string]), - (double[15.000000], string[here is another]))
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(10)
+Err: referenced table customers do not exist in the catalog
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customers AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(11)
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+        == (+ (int[1200], / ([l_l_quantity], + (double[300.000000], int[34]))), int[33])
+Group using:
+
+(12)
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        > (+ (string[this is a string], string[this is another string]), string[here is another])
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(13)
+Err: attribute l_extendedprice do not exist in trhe table c
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+        sum(* ([c_l_extendedprice], double[1.010000]))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(14)
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        == (+ (string[1204], string[this is a string]), [l_l_returnflag])
+        > (+ ([l_l_tax], + ([l_l_discount], [l_l_extendedprice])), double[3.270000])
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(15)
+Err: lhs + ([l_l_discount], [l_l_extendedprice]) and rhs string[327] should both be same type to use greater than operator >
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        || (> (+ ([l_l_tax], + ([l_l_discount], [l_l_extendedprice])), double[3.270000]), > (+ ([l_l_discount], [l_l_extendedprice]), string[327]))
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(16)
+Selecting the following:
+        sum(* ([l_l_extendedprice], - (int[1], [l_l_discount])))
+        sum(- (int[1], [l_l_discount]))
+From the following:
+        lineitem AS l
+        orders AS o
+        customer AS c
+Where the following are true:
+        == ([c_c_custkey], [o_o_custkey])
+        || (> (+ ([l_l_tax], + ([l_l_discount], [l_l_extendedprice])), double[3.270000]), > (string[here is a string], string[327]))
+        == ([l_l_orderkey], [o_o_orderkey])
+Group using:
+
+(17)
+Selecting the following:
+        sum(+ (int[12], + (double[13.400000], int[19])))
+        sum([l_l_extendedprice])
+From the following:
+        lineitem AS l
+Where the following are true:
+        bool[true]
+Group using:
